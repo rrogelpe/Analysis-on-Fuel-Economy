@@ -1,0 +1,87 @@
+---
+title: "Is automatic or manual transmission better for mpg?"
+author: "Rodrigo"
+date: "May 31, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+In this report, we investigate which type of transmission, manual or automatic, is better fot MPG. Better is defined as the transmission having a higher mpg. We use the mtcars dataset included in the R base package for analysis. The analysis consisted of fitting a regression line on mpg, the response variable, with weight (wt), number of cylinders (cyl) and transmission (am) as the independent variables. In the end, we found, **am**, is not statistically significant i.e we can't reject the null that both transmission types have the same effect on mpg. An ANOVA test confirmed this and a shapiro-wilk test was conducted to validate the ANOVA results.
+
+## Glance at the Dataset
+
+```{r, results='hide', include=TRUE}
+data("mtcars")
+```
+```{r}
+summary(mtcars[,1:7])
+```
+The first step is to look at the data for anything that might warrant concern during the analysis phase. The summary function reveals there are no missing or erroneous data points.
+```{r} 
+str(mtcars[,1:9])
+```
+```{r}
+mtcars$am <- factor(mtcars$am, 
+                    ordered = F, 
+                    labels = c("Automatic", "Manual"))
+```
+```{r}
+mtcars$cyl <- factor(mtcars$cyl,
+                     ordered = F)
+```
+However, a look at the structure of the dataset reveals **am** and **cyl**, two variables of interest, are of type numeric. We know these are categorical variables, so we convert them to factors. The data is now tidy and analysis-ready.
+
+## Simple Linear Regression
+
+```{r}
+pairs(mtcars[, c(1,3,4,6)])
+```
+From the pairwise plots, it appears **mpg** and **wt** have nice linear relationship. We begin the analysis with a simple linear regression on mpg versus weight.
+```{r}
+simple <- lm(mpg ~ wt, data = mtcars)
+summary(simple)$coefficients
+```
+**Interpretation**: The coefficient estimate for weight (wt) is -5.34. Put differently, a 1000 lbs increase in weight is associated with a 5.34 decrease in mpg. A p-value samller than 0.001 suggests the coefficient is statistically significant. This makes sense, heavier cars consume more gasoline and thus have a lower mpg.
+
+## Multivariate Linear Regression
+
+```{r}
+old.par <- par(mfrow=c(1, 2))
+plot(mtcars$am, mtcars$mpg, ylab = "Miles(US)/ Gallon", xlab = "Transmission Type", main = "Figure A: mpg by am")
+plot(mtcars$cyl, mtcars$mpg, ylab = "Miles(US)/ Gallon", xlab = "# of Cylinders", main = "Figure B: mpg by cyl")
+par(old.par)
+```
+Transmission type (am) and number of cylinders (cyl) are two categorical variables we wish to add next. We generate boxplots for an indication that miles per gallon (mpg) varies by **am** and **cyl**. Figure A suggests manual transmission vehicles have a higher mpg than automatic transmission vehicles. 
+```{r}
+auto = subset(mtcars, am == "Automatic")$mpg
+manual = subset(mtcars, am == "Manual")$mpg
+t.test(auto, manual, paired = F)
+```
+After conducting a t-test, at a .05 significance level, we can reject the null that the true difference in mpg means between the groups (automatic and manual) is equal to zero. In fact, a 95% confidence interval suggests the true difference is between -11.28 and -3.21. We add them to the model, one at a time, to quantify their effect on **mpg**.
+```{r}
+multi <- lm(mpg ~ wt + am, data = mtcars)
+multi2 <- lm(mpg ~ wt + am + cyl, data = mtcars)
+summary(multi2)$coefficients
+```
+**Interpretation**: The results are surprising. Manual transmission vehicles, on average, have 0.15 more mpg than manual transmission cars, holding weight and number of cylinders constant; a trivial difference, but even more interesting is the insignificance of the transmission coeffient. At a .05 significance level, we fail to reject the null that automatic and manual transmission cars have the same effect on mpg.
+```{r}
+anova(simple, multi, multi2)
+```
+This inference is strengthened when we perform an anova test and observe that we fail to reject the null that the added regressor, namely **am**, is not significant.
+
+### Validating ANOVA Results
+
+```{r}
+shapiro.test(multi2$residuals)
+plot(multi2, which = 1)
+```
+Since analysis of variance assumes that the residuals are approximately normal, we conduct an shapiro-wilk test as well as plot the residuals to confirm normality. The plot shows there is no pattern in the residual line. Also, at a significance level of .05, we fail to reject the null hypothesis that the residuals are normally distributed in the Shapiro-test.
+
+## Conclusion
+
+Initially, a t-test suggested transmission type (am) was significat by rejecting the null that the difference between the two groups was zero. However, once in the multiregression model, **am** became insignificant, most likely because most of the variation in the response variable is explained by **wt** and **cyl**. In other words, in the end, we fail to reject that the true difference between manual and automatic transmission vehicles is zero.
